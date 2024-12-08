@@ -7,8 +7,7 @@ from pandasai.responses.response_parser import ResponseParser
 from langchain_groq.chat_models import ChatGroq
 from dotenv import load_dotenv
 import io
-
-
+from PIL import Image
 
 class OutputParser(ResponseParser):
     def __init__(self, context) -> None:
@@ -132,31 +131,34 @@ class OutputParser(ResponseParser):
                     st.dataframe(result['value'])
                 elif result['type'] == 'plot':
                     st.write("I've created a visualization to help explain the data:")
-                    
                     try:
-                        # Check if the plot is a base64 encoded string
-                        if isinstance(result['value'], str) and result['value'].startswith('data:image/png;base64,'):
-                            import base64
+                        # Check if the result is a file path
+                        if isinstance(result['value'], str) and result['value'].endswith('.png'):
                             from PIL import Image
                             
-                            # Remove the data URL prefix
-                            base64_str = result['value'].split(',')[1]
-                            
-                            # Decode the base64 string
-                            image_bytes = base64.b64decode(base64_str)
-                            
-                            # Open the image
-                            image = Image.open(io.BytesIO(image_bytes))
+                            # Load the image from the saved path
+                            image = Image.open(result['value'])
                             
                             # Display the image in Streamlit
-                            st.image(image)
+                            st.image(image, caption="Generated Plot", use_column_width=True)
                         
-                        # If it's a matplotlib figure
+                        # If it's a matplotlib figure, save it and display it
                         elif isinstance(result['value'], matplotlib.figure.Figure):
-                            st.pyplot(result['value'])
+                            # Define a relative path to save the chart
+                            temp_path = "exports/charts/temp_chart.png"
+                            
+                            # Ensure the directory exists
+                            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+                            
+                            # Save the plot
+                            result['value'].savefig(temp_path)
+                            
+                            # Display the saved image
+                            st.image(temp_path, caption="Generated Plot", use_column_width=True)
+                            
+                            # Close the matplotlib figure to free memory
                             matplotlib.pyplot.close(result['value'])
                         
-                        # For other plot types
                         else:
                             st.write(f"Unexpected plot type: {type(result['value'])}")
                             st.write(result['value'])
